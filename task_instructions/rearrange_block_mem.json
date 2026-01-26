@@ -1,0 +1,5 @@
+{
+  "instructions": [
+    "Move the block between the two mats onto the empty mat, press the button, then move the other block (the one that started on a mat) to the space between the two mats."
+  ]
+}

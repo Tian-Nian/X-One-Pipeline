@@ -1,0 +1,8 @@
+scipy
+numpy
+h5py
+pyrealsense2
+opencv-python
+keyboard
+pyyaml
+v4l2-python3
