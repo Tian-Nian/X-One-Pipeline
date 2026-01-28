@@ -3,12 +3,6 @@ sys.path.append("./")
 
 import numpy as np
 
-from robot.robot.base_robot import Robot
-
-from robot.controller.Y1_controller import Y1Controller
-# from robot.sensor.Cv_sensor import CvSensor
-from robot.sensor.V4l2_sensor import V4l2Sensor
-
 from robot.data.collect_any import CollectAny
 # from robot.utils.base.data_transform_pipeline import X_one_format_pipeline
 from robot.utils.base.data_transform_pipeline import diff_freq_pipeline
@@ -31,7 +25,7 @@ condition = {
 
 ROBOT_MAP = {
     "sensor": {
-        "image": 60,
+        "image": 30,
     },
     "controller": {
         "arm": 120,
