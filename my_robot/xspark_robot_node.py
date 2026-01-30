@@ -189,6 +189,13 @@ class XsparkRobotNode(XsparkRobot):
     def start(self): 
         self.start_event.set()       
         debug_print("collect_node", "Collect data start!", "INFO")
+    
+    def clean(self):
+        for sensor_data_buffer in self.sensor_data_buffers.values():
+            sensor_data_buffer.clear()
+        for controller_data_buffer in self.controller_data_buffers.values():
+            controller_data_buffer.clear()
+        debug_print(self.name, "Pipe cleaned!", "INFO")
 
     def finish(self, episode_id=None):
         if self.start_event.is_set():
