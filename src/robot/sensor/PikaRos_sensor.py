@@ -5,7 +5,8 @@ import numpy as np
 
 from robot.sensor.teleoperation_sensor import TeleoperationSensor
 from robot.utils.ros_subscriber import ROSSubscriber 
-from robot.utils.base.data_handler import apply_local_offset_to_global_pose, compute_local_delta_pose, debug_print, compute_rotate_matrix
+from robot.utils.base.data_handler import  debug_print
+from robot.utils.base.compute import apply_local_offset_to_global_pose, compute_local_delta_pose, compute_rotate_matrix
 
 from geometry_msgs.msg import PoseStamped
 from robot.sensor_msgs.msg import JointState

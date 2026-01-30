@@ -6,7 +6,7 @@ import numpy as np
 from robot.robot.base_robot import Robot
 
 from robot.controller.Y1_controller import Y1Controller
-# from robot.sensor.Cv_sensor import CvSensor
+from robot.sensor.Cv_sensor import CvSensor
 from robot.sensor.V4l2_sensor import V4l2Sensor
 
 from robot.data.collect_any import CollectAny
@@ -93,9 +93,9 @@ class XsparkRobot(Robot):
             print("Cleaning up existing cameras done.")
 
             """Reload camera devices"""
-            self.sensors["image"]["cam_head"].set_up(CAMERA_SERIALS['head'], is_depth=True)
-            self.sensors["image"]["cam_left_wrist"].set_up(CAMERA_SERIALS['left_wrist'], is_depth=True)
-            self.sensors["image"]["cam_right_wrist"].set_up(CAMERA_SERIALS['right_wrist'], is_depth=True)
+            self.sensors["image"]["cam_head"].set_up(CAMERA_SERIALS['head'], is_depth=False, is_jepg=True)
+            self.sensors["image"]["cam_left_wrist"].set_up(CAMERA_SERIALS['left_wrist'], is_depth=False, is_jepg=True)
+            self.sensors["image"]["cam_right_wrist"].set_up(CAMERA_SERIALS['right_wrist'], is_depth=False, is_jepg=True)
             print("Cameras reloaded successfully.")
         except Exception as e:
             print(f"Error reloading cameras: {str(e)}")
@@ -124,7 +124,9 @@ class XsparkRobot(Robot):
     
     # ======================== EXTRA ======================== #
     def change_mode(self, teleop):
+        time.sleep(1)
         self.controllers["arm"]["left_arm"].change_mode(teleop)
+        time.sleep(1)
         self.controllers["arm"]["right_arm"].change_mode(teleop)
         time.sleep(1)
     
