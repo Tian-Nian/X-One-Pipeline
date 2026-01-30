@@ -44,7 +44,7 @@ START_POSITION_ANGLE_RIGHT_ARM = [
 ]
 
 condition = {
-    "save_path": "./save/put_block_back",
+    "save_path": "./save/",
     "task_name": "new",
     "save_format": "hdf5",
     "save_freq": 10, 
@@ -71,7 +71,7 @@ class XsparkRobot(Robot):
 
     def set_up(self, teleop=False):
         super().set_up()
-
+        self.teleop_mode=teleop
         self.controllers["arm"]["left_arm"].set_up("can1", teleop=teleop)
         self.controllers["arm"]["right_arm"].set_up("can0", teleop=teleop)
 
@@ -101,7 +101,8 @@ class XsparkRobot(Robot):
             print(f"Error reloading cameras: {str(e)}")
 
     def reset(self):
-        # self.change_mode(teleop=False)
+        if self.teleop_mode:
+            self.change_mode(teleop=False)
         time.sleep(2)
         move_data = {
             "arm":{
@@ -119,8 +120,9 @@ class XsparkRobot(Robot):
             }
         }
         self.move(move_data)
-        time.sleep(1)
-        # self.change_mode(teleop=True)
+        time.sleep(5)
+        if self.teleop_mode:
+            self.change_mode(teleop=True)
     
     # ======================== EXTRA ======================== #
     def change_mode(self, teleop):
@@ -137,35 +139,6 @@ if __name__ == "__main__":
     import time
     
     robot = XsparkRobot(move_check=False)
-    # robot.set_up(teleop=False)
-
-    robot.set_up(teleop=True)
-    # robot.reset()
-
-    while not is_enter_pressed():
-        print(robot.get()[0]["left_arm"]["joint"], "   ", robot.get()[0]["right_arm"]["joint"])
-    
-    robot.change_mode(teleop=False)
-    
-    exit()
-    robot.replay(data_path="/mnt/nas/y1_real_data/TEST/merged_data/redbao_retry/nuc4/rebao_retry/0.hdf5",key_banned=["qpos"])
-    # robot.replay(data_path="/home/xspark-ai/project/old_data/25.hdf5",key_banned=["qpos"])
-    # time.sleep(10)
-
-    # robot.get()
-    # import pdb;pdb.set_trace()
-    # robot.replay(data_path="/home/xspark-ai/project/put_block_back_processed_data/53.hdf5",key_banned=["qpos"], is_collect=False)
-
-    # robot.replay(data_path="/home/xspark-ai/project/rearrange_block_processed_data/3.hdf5",key_banned=["qpos"], is_collect=False)
-    # robot.show_pic(data_path="/home/xspark-ai/project/control_your_robot/save/put_block_back/new/0.hdf5", pic_name="cam_right_wrist")
-    # robot.show_pic(data_path="./save_xxx/test/1.hdf5", pic_name="cam_right_wrist", save_path="./save/cam_right_wrist.mp4")
-    exit()
-    # print("start!!!")
-    while True:
-        if is_enter_pressed():
-            break
-        data = robot.get()
-        robot.collect(data)
-        time.sleep(1/30)
-    print("finish!")
-    robot.finish()
+    robot.set_up(teleop=False)
+    robot.reset()
+    robot.replay(data_path="./save/new/0.hdf5", key_banned=["qpos"], is_collect=True, episode_id=1)

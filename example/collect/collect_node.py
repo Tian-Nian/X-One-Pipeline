@@ -3,7 +3,7 @@ from robot.utils.base.data_handler import is_enter_pressed, debug_print, dict_to
 from robot.utils.node.node import TaskNode
 from robot.utils.node.scheduler import Scheduler
 
-from threading import Lock
+from threading import Lock, Event
 import time
 
 ROBOT_MAP = {
@@ -107,7 +107,6 @@ def init(robot: Robot):
             controller_nodes[controller_type].append(controller_node)
         
         controller_data_nodes[controller_type][0].start()
-
     
     return sensor_data_buffers, sensor_nodes, sensor_data_nodes, controller_data_buffers, controller_nodes, controller_data_nodes, start_event
 
@@ -167,6 +166,7 @@ if __name__ == "__main__":
         for controller_scheduler in controller_schedulers.values():
             controller_scheduler.start()
         
+        # Waiting for ENTER to finish
         while not is_enter_pressed():
             time.sleep(0.1)  
 
@@ -191,6 +191,3 @@ if __name__ == "__main__":
                 robot.collect(d,)
         
         robot.finish()
-        
-
-
