@@ -1,7 +1,7 @@
 from robot.controller.arm_controller import ArmController
 from robot.utils.base.data_handler import debug_print
 
-from y1_sdk import Y1SDKInterface, ControlMode
+from y1_sdk import Y1SDKInterface, ControlMode, MitControlCommand
 import os
 import time
 from robot.config._GLOBAL_CONFIG import THIRD_PARTY_PATH
@@ -96,6 +96,26 @@ class Y1Controller(ArmController):
             debug_print(self.name, f"set_joint_torque to: {torque}", "ERROR")
             debug_print(self.name, f"set_joint_torque error: {e}", "ERROR")
     
+    def send_tau(self, tau):
+        assert len(tau) == 6
+
+        cmds = []
+        for t in tau:
+            c = MitControlCommand()
+
+            # 纯 torque → impedance 必须关掉
+            c.kp = 0.0
+            c.kd = 0.0
+
+            c.joint_position = 0.0
+            c.joint_velocity = 0.0
+
+            c.torque = float(t)
+
+            cmds.append(c)
+
+        self.controller.MitControlArm(cmds)
+
     def __del__(self):
         try:
             if hasattr(self, 'controller'):
@@ -128,6 +148,7 @@ def collect_tarj(robot):
             writer.writerow(positions)
 
             time.sleep(PERIOD)
+    print(f"数据采集完成，已保存到 {csv_filename}")
 
 def run_tarj(robot):
     FREQ = 100  # Hz
@@ -170,10 +191,8 @@ def run_tarj(robot):
             time.sleep(PERIOD)
 
     print(f"轨迹执行完成，已保存到 {new_csv_filename}")
-
-
-    robot.set_joint(np.array([0] * 7))
-
+    time.sleep(2)
+    robot.set_joint(np.array([0.] * 6))
     time.sleep(5)
 
 def is_ld(calc):
@@ -233,27 +252,42 @@ def is_ld(calc):
 
     plt.savefig("data/ls_id_results.png", dpi=300)
     plt.show()
+    print("Least squares identification completed. Beta parameters saved to ls_id_beta.npy and plot saved to data/ls_id_results.png")
 
 if __name__=="__main__":
+    from .calc_dynamics import CalcDynamics
+
     robot = Y1Controller("test_y1_right")
-    robot.set_up("can2", 0, "nrt")
-    robot.set_joint([0., 0., 0., 0., 0, 0])
+    robot.set_up("can0", 3, "nrt")
+    time.sleep(1)
+    robot.set_joint([0., 0., 0., 0., 0., 0.])
     time.sleep(3)
 
-    robot.change_mode("mit")
-    time.sleep(1)
-    
-    from .calc_dynamics import CalcDynamics
-    # calc = CalcDynamics()
-
+    # ===== collect tarj =====
+    # robot.change_mode("teleop")
+    # time.sleep(1)
     # collect_tarj(robot)
+
+    # ===== run tarj =====
+    # robot.change_mode("nrt")
+    # time.sleep(1) 
     # run_tarj(robot)
+
+    # ===== least square identification =====
+    # calc = CalcDynamics()
     # is_ld(calc)
 
+    # ===== mit control test =====
+    print(0)
+    robot.change_mode("mit")
+    time.sleep(1)
+    print(1)
     beta = np.load("ls_id_beta.npy")
     dynamics_regressor = CalcDynamics()
+    print(2)
     while True:
         data = robot.get_state()
+        print(3)
         positions = data["joint_position"]
         velocities = data["joint_velocity"]
 
@@ -261,4 +295,6 @@ if __name__=="__main__":
 
         tau = regressor @ beta
 
-        robot.set_joint_torque(tau.ravel().tolist())
+        # import pdb;pdb.set_trace()
+
+        robot.send_tau(tau.ravel().tolist())

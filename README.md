@@ -150,3 +150,9 @@ bash scripts/replay.sh ${task_name} ${base_cfg} ${idx}
 4. `set_language(self, instruction)`  
    - 可不实现，仅在 `eval_one_episode()` 中选择性调用。  
    - 可类似实现其他函数，用来实现完整推理流程。
+
+### 2.7 mit控制
+需要在22.04, 使用y1_sdk_python -b zky.
+
+g++ -O3 -fPIC -shared 1.cpp -o libregressor.so
+
