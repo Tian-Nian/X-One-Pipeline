@@ -219,7 +219,7 @@ def X_one_format_pipeline(collection, save_path, episode_id, mapping):
     with open(info_path, "w", encoding="utf-8") as f:
         json.dump(info, f, indent=2)
 
-    debug_print("X_one_format_pipeline", f"save data success at: {output_path} !", "INFO")
+    debug_print("X_spark_format_pipeline", f"save data success at: {output_path} !", "INFO")
 
 
 def diff_freq_pipeline(collection, save_path, episode_id, mapping):
@@ -400,19 +400,18 @@ def diff_freq_pipeline(collection, save_path, episode_id, mapping):
     )
 
 def X_spark_format_pipeline(collection, save_path, episode_id, mapping):
-    output_path = os.path.join(save_path, f"episode{episode_id}")
-
-    debug_print("X_one_format_pipeline", f"save to: {output_path}/ start!", "INFO")
+    output_path = save_path
+    debug_print("X_spark_format_pipeline", f"save to: {output_path}/ start!", "INFO")
     left_eef, left_joint, left_gripper, left_timestamp = collection.get_item("left_arm", "qpos"), collection.get_item("left_arm", "joint"), \
                                                         collection.get_item("left_arm", "gripper"), collection.get_item("left_arm", "timestamp")
     right_eef, right_joint, right_gripper, right_timestamp = collection.get_item("right_arm", "qpos"), collection.get_item("right_arm", "joint"),\
                                                         collection.get_item("right_arm", "gripper"), collection.get_item("right_arm", "timestamp")
 
-    cam_head, cam_head_timestamp = collection.get_item("cam_head", "color"), collection.get_item("cam_head", "timestamp")
-    cam_left_wrist, cam_left_wrist_timestamp = collection.get_item("cam_left_wrist", "color"), collection.get_item("cam_left_wrist", "timestamp")
-    cam_right_wrist, cam_right_wrist_timestamp = collection.get_item("cam_right_wrist", "color"), collection.get_item("cam_right_wrist", "timestamp")
+    cam_head_color, cam_head_timestamp = collection.get_item("cam_head", "color"), collection.get_item("cam_head", "timestamp")
+    cam_left_wrist_color, cam_left_wrist_timestamp = collection.get_item("cam_left_wrist", "color"), collection.get_item("cam_left_wrist", "timestamp")
+    cam_right_wrist_color, cam_right_wrist_timestamp = collection.get_item("cam_right_wrist", "color"), collection.get_item("cam_right_wrist", "timestamp")
 
-    hdf5_path = os.path.join(output_path, f"robotpose.hdf5")
+    hdf5_path = os.path.join(save_path, f"{episode_id}.hdf5")
     '''
     vision:
         head:
@@ -437,8 +436,8 @@ def X_spark_format_pipeline(collection, save_path, episode_id, mapping):
         right_tcp_poses:
         right_delta_ee_poses:
     '''
-    def get_cam_shape(img):
-        jpeg_bytes = img.tobytes().rstrip(b"\0")
+    def get_cam_shape(img_bytes):
+        jpeg_bytes = img_bytes.rstrip(b"\0")
         nparr = np.frombuffer(jpeg_bytes, dtype=np.uint8)
         shape = cv2.imdecode(nparr, 1).shape
         return shape
@@ -447,48 +446,24 @@ def X_spark_format_pipeline(collection, save_path, episode_id, mapping):
         vision = f.create_group("vision")
         state = f.create_group("state")
         cam_head = vision.create_group("cam_head")
-        cam_head.create_dataset("color", data=cam_head)
-        cam_head.create_dataset("shape", data=get_cam_shape(cam_head[0]))
+        cam_head.create_dataset("color", data=cam_head_color)
+        
+        cam_head.create_dataset("shape", data=get_cam_shape(cam_head_color[0]))
 
         cam_left_wrist = vision.create_group("cam_left_wrist")
-        cam_left_wrist.create_dataset("color", data=cam_left_wrist)
-        cam_left_wrist.create_dataset("shape", data=get_cam_shape(cam_left_wrist[0])) # 固定分辨率
+        cam_left_wrist.create_dataset("color", data=cam_left_wrist_color)
+        cam_left_wrist.create_dataset("shape", data=get_cam_shape(cam_left_wrist_color[0])) # 固定分辨率
 
         cam_right_wrist = vision.create_group("cam_right_wrist")
-        cam_right_wrist.create_dataset("color", data=cam_right_wrist)
-        cam_right_wrist.create_dataset("shape", data=get_cam_shape(cam_right_wrist[0])) # 固定分辨率
+        cam_right_wrist.create_dataset("color", data=cam_right_wrist_color)
+        cam_right_wrist.create_dataset("shape", data=get_cam_shape(cam_right_wrist_color[0])) # 固定分辨率
         
-        left_joint_states = np.concatenate([left_joint, left_gripper], axis=1)
-        right_joint_states = np.concatenate([right_joint, right_gripper], axis=1)
+        left_joint_states = np.concatenate([left_joint, np.array(left_gripper).reshape(-1, 1)], axis=1)
+        right_joint_states = np.concatenate([right_joint, np.array(right_gripper).reshape(-1, 1)], axis=1)
 
         state.create_dataset("left_arm_joint_states", data=left_joint_states)
         state.create_dataset("left_ee_poses", data=left_eef)
         state.create_dataset("right_arm_joint_states", data=right_joint_states)
         state.create_dataset("right_ee_poses", data=right_eef)
-
-    info = {
-        "episode_id": episode_id,
-        "timestamps": {
-            "left_arm": {
-                "timestamp": left_timestamp.tolist()
-            },
-            "right_arm": {
-                "timestamp": right_timestamp.tolist()
-            },
-            "cam_head": {
-                "timestamp": cam_head_timestamp.tolist()
-            },
-            "cam_left_wrist": {
-                "timestamp": cam_left_wrist_timestamp.tolist()
-            },
-            "cam_right_wrist": {
-                "timestamp": cam_right_wrist_timestamp.tolist()
-            }
-        }
-    }
-
-    info_path = os.path.join(output_path, "info.json")
-    with open(info_path, "w", encoding="utf-8") as f:
-        json.dump(info, f, indent=2)
 
     debug_print("X_one_format_pipeline", f"save data success at: {output_path} !", "INFO")
