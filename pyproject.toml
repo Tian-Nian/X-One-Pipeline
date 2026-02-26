@@ -24,6 +24,7 @@ dependencies = [
   "omegaconf",
   "pyrealsense2",
   "wujihandpy",
+  "pyserial",
 ]
 
 [project.urls]
