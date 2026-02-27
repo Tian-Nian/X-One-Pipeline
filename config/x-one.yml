@@ -9,7 +9,7 @@ collect:
   num_episode: 100
   save_freq: 30  # in Hz
   move_check: true
-  use_footpedal: true
+  use_footpedal: false
   footpedal_serial: "/dev/hidraw4" # only read if use_footpedal is true, default to "/dev/hidraw4"
 
 robot:
@@ -25,9 +25,9 @@ robot:
     left_arm: can0
     right_arm: can1
   CAMERA_SERIALS:
-    head: "/dev/video0"
-    left_wrist: "/dev/video2"
-    right_wrist: "/dev/video4"
+    head: "/dev/video12"
+    left_wrist: "/dev/video14"
+    right_wrist: "/dev/video16"
   bias:
     left_arm:
       gripper: -0.01
