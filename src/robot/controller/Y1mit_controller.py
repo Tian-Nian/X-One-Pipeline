@@ -254,11 +254,11 @@ def is_ld(calc):
     plt.show()
 
 if __name__=="__main__":
-    # robot = Y1Controller("test_y1_right")
-    # robot.set_up("can3", 0, "nrt") # nrt or mit or teleop
-    # time.sleep(1)
-    # robot.set_joint([0., 0., 0., 0., 0, 0])
-    # time.sleep(2)
+    robot = Y1Controller("test_y1_right")
+    robot.set_up("can3", 0, "nrt") # nrt or mit or teleop
+    time.sleep(1)
+    robot.set_joint([0., 0., 0., 0., 0, 0])
+    time.sleep(2)
     
     from .calc_dynamics import CalcDynamics
     calc = CalcDynamics()
@@ -270,12 +270,15 @@ if __name__=="__main__":
     # robot.change_mode("mit")
     # time.sleep(1)
 
-    # beta = np.load("ls_id_beta.npy")
-    # dynamics_regressor = CalcDynamics()
-    # while True:
-    #     data = robot.get_state()
-    #     positions = data["joint_position"]
-    #     velocities = data["joint_velocity"]
+    robot.change_mode("mit")
+    time.sleep(1)
+
+    beta = np.load("ls_id_beta.npy")
+    dynamics_regressor = CalcDynamics()
+    while True:
+        data = robot.get_state()
+        positions = data["joint_position"]
+        velocities = data["joint_velocity"]
 
     #     regressor = dynamics_regressor.calc(positions, velocities * 0, np.zeros(6))
 
