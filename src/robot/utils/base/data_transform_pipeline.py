@@ -5,6 +5,7 @@ import numpy as np
 import cv2
 import os
 import json
+import pandas as pd
 
 def image_rgb_encode_pipeline(collection, save_path, episode_id, mapping):
     def images_encoding(imgs):
@@ -401,15 +402,21 @@ def diff_freq_pipeline(collection, save_path, episode_id, mapping):
 
 def X_spark_format_pipeline(collection, save_path, episode_id, mapping):
     output_path = save_path
-    debug_print("X_spark_format_pipeline", f"save to: {output_path}/ start!", "INFO")
+    # debug_print("X_spark_format_pipeline", f"save to: {output_path}/ start!", "INFO")
     left_eef, left_joint, left_gripper, left_timestamp = collection.get_item("left_arm", "qpos"), collection.get_item("left_arm", "joint"), \
                                                         collection.get_item("left_arm", "gripper"), collection.get_item("left_arm", "timestamp")
     right_eef, right_joint, right_gripper, right_timestamp = collection.get_item("right_arm", "qpos"), collection.get_item("right_arm", "joint"),\
                                                         collection.get_item("right_arm", "gripper"), collection.get_item("right_arm", "timestamp")
 
+    left_gripper = np.array(left_gripper).reshape(-1, 1) # [m,] -> [m, 1]
+    right_gripper = np.array(right_gripper).reshape(-1, 1) # [m,] -> [m, 1]
+
     cam_head_color, cam_head_timestamp = collection.get_item("cam_head", "color"), collection.get_item("cam_head", "timestamp")
     cam_left_wrist_color, cam_left_wrist_timestamp = collection.get_item("cam_left_wrist", "color"), collection.get_item("cam_left_wrist", "timestamp")
     cam_right_wrist_color, cam_right_wrist_timestamp = collection.get_item("cam_right_wrist", "color"), collection.get_item("cam_right_wrist", "timestamp")
+
+    subtasks = collection.extra_episode_info.get("subtasks", [])
+    instructions = collection.extra_episode_info.get("instructions", [])
 
     hdf5_path = os.path.join(save_path, f"{episode_id}.hdf5")
     '''
@@ -468,4 +475,75 @@ def X_spark_format_pipeline(collection, save_path, episode_id, mapping):
         state.create_dataset("right_ee_joint_states", data=right_gripper)
         state.create_dataset("right_ee_poses", data=right_eef)
 
-    debug_print("X_one_format_pipeline", f"save data success at: {output_path} !", "INFO")
+        f.create_dataset("instructions", data=np.string_(json.dumps(instructions)))
+        f.create_dataset("subtasks", data=np.string_(json.dumps(subtasks)))
+        addition_info = f.create_group("additional_info")
+        addition_info.create_dataset("frequency", data=collection.extra_episode_info.get("additional_info", {}).get("frequency", 30))
+        f.create_dataset("data_format_version", data=np.string_(collection.extra_episode_info.get("data_format_version", "v1.0")))
+        
+    debug_print("X_one_format_pipeline", f"save data success at: {output_path}, id: {episode_id} !", "INFO")
+
+def X_spark_parquet_pipeline(collection, save_path, episode_id, mapping):
+    """
+    将 collection 中的数据保存为 Parquet 格式，结构与 X_spark_format_pipeline 类似。
+    """
+    import os
+    import pandas as pd
+    import numpy as np
+    import json
+
+    # 获取数据 (参考 X_spark_format_pipeline 的逻辑)
+    left_eef, left_joint, left_gripper = collection.get_item("left_arm", "qpos"), collection.get_item("left_arm", "joint"), collection.get_item("left_arm", "gripper")
+    right_eef, right_joint, right_gripper = collection.get_item("right_arm", "qpos"), collection.get_item("right_arm", "joint"), collection.get_item("right_arm", "gripper")
+    
+    left_gripper = np.array(left_gripper).reshape(-1, 1)
+    right_gripper = np.array(right_gripper).reshape(-1, 1)
+
+    cam_head_color = collection.get_item("cam_head", "color")
+    cam_left_wrist_color = collection.get_item("cam_left_wrist", "color")
+    cam_right_wrist_color = collection.get_item("cam_right_wrist", "color")
+    
+    subtasks = collection.extra_episode_info.get("subtasks", [])
+    instructions = collection.extra_episode_info.get("instructions", [])
+    frequency = collection.extra_episode_info.get("additional_info", {}).get("frequency", 30)
+    version = collection.extra_episode_info.get("data_format_version", "v1.0")
+
+    # 构建 DataFrame 用的字典
+    # 注意：Parquet 适合列式存储。对于图像 bytes，存储在列中是可以的。
+    # 假设所有序列长度一致
+    num_steps = len(left_joint)
+    
+    df_dict = {
+        "step": np.arange(num_steps),
+        "left_arm_joint_states": [list(x) for x in left_joint],
+        "left_ee_joint_states": [list(x) for x in left_gripper],
+        "left_ee_poses": [list(x) for x in left_eef],
+        "right_arm_joint_states": [list(x) for x in right_joint],
+        "right_ee_joint_states": [list(x) for x in right_gripper],
+        "right_ee_poses": [list(x) for x in right_eef],
+        "cam_head_colors": [bytes(x) for x in cam_head_color],
+        "cam_left_wrist_colors": [bytes(x) for x in cam_left_wrist_color],
+        "cam_right_wrist_colors": [bytes(x) for x in cam_right_wrist_color],
+    }
+    
+    df = pd.DataFrame(df_dict)
+    
+    # 存储路径
+    os.makedirs(save_path, exist_ok=True)
+    parquet_path = os.path.join(save_path, f"{episode_id}.parquet")
+    
+    # 将元数据（instructions, subtasks, frequency）存入 Parquet 的 metadata 中，或者另存 json
+    # 这里简单起见直接存为 parquet 文件的自定义元数据
+    df.to_parquet(parquet_path, index=False)
+    
+    # 同时可以存一个小的 json 记录元数据
+    meta_path = os.path.join(save_path, f"{episode_id}_meta.json")
+    with open(meta_path, "w", encoding="utf-8") as f:
+        json.dump({
+            "instructions": instructions,
+            "subtasks": subtasks,
+            "frequency": frequency,
+            "data_format_version": version
+        }, f, indent=2)
+
+    debug_print("X_spark_parquet_pipeline", f"save data success at: {parquet_path}!", "INFO")
