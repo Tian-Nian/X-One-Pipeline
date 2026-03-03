@@ -42,6 +42,8 @@ ACT_CONFIG = {
 class ACTPolicy(nn.Module):
     def __init__(self, act_args):
         super().__init__()
+        if isinstance(act_args, dict):
+            act_args = argparse.Namespace(**act_args)
         self.model = build_ACT_model(act_args)  # CVAE decoder
 
     def __call__(self, qpos, image):
