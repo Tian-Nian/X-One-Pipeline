@@ -224,7 +224,7 @@ class ACT_MOBILE:
         obs = self.observation_window
         
         ret_actions = []
-        for _ in range(50):
+        for _ in range(self.num_queries):
             action = self.infer(obs)
             action_vec = np.asarray(action).reshape(-1)
 
