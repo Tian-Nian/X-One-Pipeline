@@ -178,3 +178,15 @@ python -m src.robot.controller.Y1mit_controller
 # 测试mit重力补偿, 将上面三者注释即可.
 python -m src.robot.controller.Y1mit_controller
 ```
+
+### 2.8 (可选) 摄像头标定
+可以在电脑上绑定摄像头的序列号, 这样就不需要每次开机重新标定,
+
+```bash
+python tools/set_camera_rules.py
+
+#  注意, 这不是烧录, 更换电脑后要重新操作一次.根据提示, 配置摄像头后, 会出现三个映射, 将其替换到config/x-one.yml即可.
+/dev/head_camera
+/dev/left_wrist_camera
+/dev/right_wrist_camera
+```
