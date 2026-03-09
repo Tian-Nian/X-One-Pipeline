@@ -26,12 +26,14 @@ class Dual_X_Arm(Robot):
     def set_up(self, teleop=False):
         super().set_up()
         self.teleop_mode = teleop
-        self.controllers["arm"]["left_arm"].set_up(self.robot_config['ROBOT_CAN']['left_arm'], teleop=teleop)
-        self.controllers["arm"]["right_arm"].set_up(self.robot_config['ROBOT_CAN']['right_arm'], teleop=teleop)
+        self.teleop = False
 
-        self.sensors["image"]["cam_head"].set_up(self.robot_config['CAMERA_SERIALS']['head'], is_depth=False, is_jpeg=True)
-        self.sensors["image"]["cam_left_wrist"].set_up(self.robot_config['CAMERA_SERIALS']['left_wrist'], is_depth=False, is_jpeg=True)
-        self.sensors["image"]["cam_right_wrist"].set_up(self.robot_config['CAMERA_SERIALS']['right_wrist'], is_depth=False, is_jpeg=True)
+        self.controllers["arm"]["left_arm"].set_up(self.robot_config['ROBOT_CAN']['left_arm'], teleop=self.teleop)
+        self.controllers["arm"]["right_arm"].set_up(self.robot_config['ROBOT_CAN']['right_arm'], teleop=self.teleop)
+
+        self.sensors["image"]["cam_head"].set_up(self.robot_config['CAMERA_SERIALS']['head'], is_depth=False, is_jpeg=False)
+        self.sensors["image"]["cam_left_wrist"].set_up(self.robot_config['CAMERA_SERIALS']['left_wrist'], is_depth=False, is_jpeg=False)
+        self.sensors["image"]["cam_right_wrist"].set_up(self.robot_config['CAMERA_SERIALS']['right_wrist'], is_depth=False, is_jpeg=False)
         
         self.set_collect_type({"arm": ["joint", "eef", "gripper"], "image": ["color"]})
         print(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] ✅ Setup complete.")
@@ -45,9 +47,9 @@ class Dual_X_Arm(Robot):
             print("Cleaning up existing cameras done.")
 
             """Reload camera devices"""
-            self.sensors["image"]["cam_head"].set_up(self.robot_config['CAMERA_SERIALS']['head'], is_depth=False, is_jpeg=True)
-            self.sensors["image"]["cam_left_wrist"].set_up(self.robot_config['CAMERA_SERIALS']['left_wrist'], is_depth=False, is_jpeg=True)
-            self.sensors["image"]["cam_right_wrist"].set_up(self.robot_config['CAMERA_SERIALS']['right_wrist'], is_depth=False, is_jpeg=True)
+            self.sensors["image"]["cam_head"].set_up(self.robot_config['CAMERA_SERIALS']['head'], is_depth=False, is_jpeg=False)
+            self.sensors["image"]["cam_left_wrist"].set_up(self.robot_config['CAMERA_SERIALS']['left_wrist'], is_depth=False, is_jpeg=False)
+            self.sensors["image"]["cam_right_wrist"].set_up(self.robot_config['CAMERA_SERIALS']['right_wrist'], is_depth=False, is_jpeg=False)
             print("[INFO][camera] ✅ Cleaned up existing cameras.")
         except Exception as e:
             print(f"Error reloading cameras: {str(e)}")
@@ -55,9 +57,10 @@ class Dual_X_Arm(Robot):
     def reset(self):
         super().reset()
         
-        if self.teleop_mode:
+        if self.teleop:
             self._change_mode(teleop=False)
-        time.sleep(2) # TODO
+        
+        time.sleep(2)
         move_data = {
             "arm":{
                 "left_arm":{
@@ -82,6 +85,7 @@ class Dual_X_Arm(Robot):
         time.sleep(1)
         self.controllers["arm"]["right_arm"].change_mode(teleop)
         time.sleep(1)
+        self.teleop = teleop
     
     def set_map(self, map_path):
         self.controllers["mobile"]["slamware"].set_map(map_path)

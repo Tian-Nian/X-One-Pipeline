@@ -21,8 +21,9 @@ class Dual_X_Arm_No_Camera(Robot):
     def set_up(self, teleop=False):
         super().set_up()
         self.teleop_mode = teleop
-        self.controllers["arm"]["left_arm"].set_up(self.robot_config['ROBOT_CAN']['left_arm'], teleop=teleop)
-        self.controllers["arm"]["right_arm"].set_up(self.robot_config['ROBOT_CAN']['right_arm'], teleop=teleop)
+        self.teleop = False
+        self.controllers["arm"]["left_arm"].set_up(self.robot_config['ROBOT_CAN']['left_arm'], teleop=self.teleop)
+        self.controllers["arm"]["right_arm"].set_up(self.robot_config['ROBOT_CAN']['right_arm'], teleop=self.teleop)
 
         self.set_collect_type({"arm": ["joint", "eef", "gripper"]})
         print(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] ✅ Setup complete.")
@@ -46,8 +47,9 @@ class Dual_X_Arm_No_Camera(Robot):
     def reset(self):
         super().reset()
         
-        if self.teleop_mode:
+        if self.teleop:
             self._change_mode(teleop=False)
+        
         time.sleep(2) # TODO
         move_data = {
             "arm":{

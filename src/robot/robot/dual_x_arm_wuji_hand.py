@@ -31,10 +31,11 @@ class Dual_X_Arm_hand(Robot):
         super().set_up()
 
         self.teleop_mode = teleop
+        self.teleop = False
 
-        self.controllers["arm"]["left_arm"].set_up(self.robot_config['ROBOT_CAN']['left_arm'], arm_end_type=0, teleop=teleop)
-        self.controllers["arm"]["right_arm"].set_up(self.robot_config['ROBOT_CAN']['right_arm'], arm_end_type=0, teleop=False)
-        # self.controllers["hand"]["left_hand"].set_up("left", self.robot_config["LEFT_HAND_CFG_PATH"], teleop=teleop)
+        self.controllers["arm"]["left_arm"].set_up(self.robot_config['ROBOT_CAN']['left_arm'], arm_end_type=0, teleop=self.teleop)
+        self.controllers["arm"]["right_arm"].set_up(self.robot_config['ROBOT_CAN']['right_arm'], arm_end_type=0, teleop=self.teleop)
+        self.controllers["hand"]["left_hand"].set_up("left", self.robot_config["LEFT_HAND_CFG_PATH"], teleop=teleop)
         self.controllers["hand"]["right_hand"].set_up("right", self.robot_config["RIGHT_HAND_CFG_PATH"], teleop=False)
         
         self.set_collect_type({"arm": ["joint", "eef"], "hand": ["joint"]})
@@ -43,7 +44,7 @@ class Dual_X_Arm_hand(Robot):
     def reset(self):
         super().reset()
 
-        if self.teleop_mode:
+        if self.teleop:
             self._change_mode(teleop=False)
         
         time.sleep(2) # TODO
@@ -67,7 +68,8 @@ class Dual_X_Arm_hand(Robot):
                 }
             }
         }
-        self.move(move_data)
+        self.move_blocking(move_data)
+
         time.sleep(5)
         if self.teleop_mode:
             self._change_mode(teleop=True)

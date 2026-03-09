@@ -2,6 +2,7 @@ import numpy as np
 import os
 from robot.utils.base.data_handler import debug_print, dict_to_list, hdf5_groups_to_dict
 import numpy as np
+import time
 
 def state_transform(data):
     state = np.concatenate([
@@ -35,7 +36,7 @@ class REPLAY:
         actions = []
 
         # base → first
-        actions.extend(self._interpolate(base_state, start_state, 10))
+        actions.extend(self._interpolate(base_state, start_state, 30))
 
         # episode
         for ep in self.raw_episode:
@@ -47,6 +48,7 @@ class REPLAY:
         return np.asarray(actions)   # (T, 14)
 
     def infer(self):
+        time.sleep(0.1)  # 模拟推理时间
         action_chunk = []
 
         for _ in range(self.chunk_size):
@@ -66,7 +68,7 @@ class Your_Policy:
     def __init__(self, deploy_cfg=None):
         # Initialize your policy model here
         self.deploy_cfg = deploy_cfg
-        self.model = REPLAY(os.path.join('./data', deploy_cfg['task_name'], deploy_cfg['base_cfg'], f"{deploy_cfg['ckpt_setting']}.hdf5"))
+        self.model = REPLAY(hdf5_path=self.deploy_cfg["data_path"], chunk_size=50)
         
     def update_obs(self, obs):
         self.last_obs = obs

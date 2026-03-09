@@ -21,6 +21,7 @@ class CollectAny:
         
         self.collect_cfg = config
         self.episode = []
+        self.extra_episode_info = {}
         self.move_check = config.get("move_check", False) if config is not None else False
         self.last_controller_data = None
         self.resume = resume
@@ -135,7 +136,7 @@ class CollectAny:
         save_dir = os.path.join(self.collect_cfg["save_dir"], self.collect_cfg["task_name"], self.collect_cfg['type'])
         
         if not os.path.exists(save_dir):
-            os.makedirs(save_dir)
+            os.makedirs(save_dir, exist_ok=True)
 
         config_path = os.path.join(save_dir, "config.json")
         if not os.path.exists(config_path):
@@ -207,6 +208,8 @@ class CollectAny:
 
         return False
 
+    def add_extra_episode_info(self, extra_info):
+        self.extra_episode_info.update(extra_info)
 
 def merge_config(base, incoming, prefix: str = ""):
     conflicts = []

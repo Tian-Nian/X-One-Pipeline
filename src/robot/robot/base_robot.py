@@ -116,15 +116,6 @@ class Robot:
     def move_blocking(self, move_data, check_freq=100, key_banned=None):
         stop_num =0
         self.move(move_data, key_banned=key_banned)
-
-        def state_is_close(move_data, tolerance):
-            for controller_type_name, controller_type in move_data.items():
-                for controller_name, controller_action in controller_type.items():
-                    controller_data = self.controllers[controller_type_name][controller_name].get()
-                    for control_type in controller_action.keys():
-                        if np.any(np.abs(np.array(controller_data[control_type]) - np.array(controller_action[control_type])) > 0.01):
-                            return False
-            return True
         
         while True:
             time.sleep(1 / check_freq)

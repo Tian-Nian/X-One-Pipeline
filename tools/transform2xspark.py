@@ -18,13 +18,18 @@ DATA_MAP = {
     "reset_frame_interval": "Reset the robotic arm."
 }
 
-def process_episode(hdf5_path, base_cfg):
-    try:
+def process_episode(hdf5_path, base_cfg, output_dir=None):
+    # try:
+    if True:
         # 每一个进程需要独立的 CollectAny 实例（如果它包含不可序列化的状态或写锁）
         # 这里在函数内部初始化以确保进程安全
         local_cfg = base_cfg.copy()
         local_cfg["collect"]["move_check"] = False
         collection = CollectAny(config=local_cfg["collect"])
+
+        if output_dir:
+            collection.collect_cfg["save_dir"] = output_dir
+            
         collection._add_data_transform_pipeline(X_spark_format_pipeline)
         
         # debug_print("x_one", f"converting {hdf5_path}.", "INFO")
@@ -57,9 +62,9 @@ def process_episode(hdf5_path, base_cfg):
         
         collection.write(episode_id=Path(hdf5_path).stem)
         return None
-    except Exception as e:
-        debug_print("x_one", f"converting {hdf5_path} Fail: \n{e}", "ERROR")
-        return hdf5_path
+    # except Exception as e:
+    #     debug_print("x_one", f"converting {hdf5_path} Fail: \n{e}", "ERROR")
+    #     return hdf5_path
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Transform datasets typr to HDF5.')
@@ -71,15 +76,19 @@ if __name__ == "__main__":
                         help='output path for transformed data')
     parser.add_argument('--num_workers', type=int, default=12,
                         help='number of parallel workers.')
+    parser.add_argument('--output_dir', type=str, default=None,
+                        help='directory to save transformed data.')
     args = parser.parse_args()
 
     base_cfg_path = os.path.join(CONFIG_DIR, f"{args.base_cfg}.yml")
     base_cfg = load_yaml(base_cfg_path)
+    base_cfg["collect"]["save_dir"] = os.path.join(base_cfg["collect"]["save_dir"], args.task_name, "nuc4")
 
     task_name = args.task_name
     data_path = os.path.join(base_cfg["collect"]["save_dir"], task_name, base_cfg["collect"]["type"])
     new_task_name = args.new_task_name
-
+    output_dir = args.output_dir
+    
     hdf5_paths = get_files(data_path, "*.hdf5")
 
     base_cfg["collect"]["task_name"] = new_task_name
@@ -90,7 +99,7 @@ if __name__ == "__main__":
     # 使用进程池并行处理
     results = []
     with Pool(num_workers) as pool:
-        process_func = partial(process_episode, base_cfg=base_cfg)
+        process_func = partial(process_episode, base_cfg=base_cfg, output_dir=output_dir)
         
         # 使用 imap_unordered 并包装 tqdm 以实现实时更新
         for res in tqdm(pool.imap_unordered(process_func, hdf5_paths), 
@@ -100,8 +109,11 @@ if __name__ == "__main__":
 
     # 过滤出失败的任务
     fail_episode_list = [res for res in results if res is not None]
+    if output_dir:
+        output_path = os.path.join(output_dir, new_task_name, base_cfg["collect"]["type"])
+    else:
+        output_path = os.path.join(base_cfg["collect"]["save_dir"], new_task_name, base_cfg["collect"]["type"])
     
-    output_path = os.path.join(base_cfg["collect"]["save_dir"], new_task_name, base_cfg["collect"]["type"])
     fail_save_path = Path(os.path.join(output_path, "fail_episodes.txt"))
     # ---------- 保存失败列表 ----------
     fail_save_path.parent.mkdir(parents=True, exist_ok=True)

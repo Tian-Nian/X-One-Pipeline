@@ -403,17 +403,27 @@ def diff_freq_pipeline(collection, save_path, episode_id, mapping):
 def X_spark_format_pipeline(collection, save_path, episode_id, mapping):
     output_path = save_path
     # debug_print("X_spark_format_pipeline", f"save to: {output_path}/ start!", "INFO")
-    left_eef, left_joint, left_gripper, left_timestamp = collection.get_item("left_arm", "qpos"), collection.get_item("left_arm", "joint"), \
+    left_eef, left_joint, left_gripper, left_timestamp = collection.get_item("left_arm", "eef"), collection.get_item("left_arm", "joint"), \
                                                         collection.get_item("left_arm", "gripper"), collection.get_item("left_arm", "timestamp")
-    right_eef, right_joint, right_gripper, right_timestamp = collection.get_item("right_arm", "qpos"), collection.get_item("right_arm", "joint"),\
+    right_eef, right_joint, right_gripper, right_timestamp = collection.get_item("right_arm", "eef"), collection.get_item("right_arm", "joint"),\
                                                         collection.get_item("right_arm", "gripper"), collection.get_item("right_arm", "timestamp")
 
     left_gripper = np.array(left_gripper).reshape(-1, 1) # [m,] -> [m, 1]
     right_gripper = np.array(right_gripper).reshape(-1, 1) # [m,] -> [m, 1]
 
-    cam_head_color, cam_head_timestamp = collection.get_item("cam_head", "color"), collection.get_item("cam_head", "timestamp")
-    cam_left_wrist_color, cam_left_wrist_timestamp = collection.get_item("cam_left_wrist", "color"), collection.get_item("cam_left_wrist", "timestamp")
-    cam_right_wrist_color, cam_right_wrist_timestamp = collection.get_item("cam_right_wrist", "color"), collection.get_item("cam_right_wrist", "timestamp")
+    def encode(imgs):
+        if isinstance(imgs, bytes) or (isinstance(imgs,np.ndarray) and len(imgs.shape) == 1):
+            return imgs
+        encode_data = []
+        for i in range(len(imgs)):
+            success, encoded_image = cv2.imencode('.jpg', imgs[i])
+            jpeg_data = encoded_image.tobytes()
+            encode_data.append(jpeg_data)
+        return np.array(encode_data)
+    
+    cam_head_color, cam_head_timestamp = encode(collection.get_item("cam_head", "color")), collection.get_item("cam_head", "timestamp")
+    cam_left_wrist_color, cam_left_wrist_timestamp = encode(collection.get_item("cam_left_wrist", "color")), collection.get_item("cam_left_wrist", "timestamp")
+    cam_right_wrist_color, cam_right_wrist_timestamp = encode(collection.get_item("cam_right_wrist", "color")), collection.get_item("cam_right_wrist", "timestamp")
 
     subtasks = collection.extra_episode_info.get("subtasks", [])
     instructions = collection.extra_episode_info.get("instructions", [])
@@ -443,11 +453,15 @@ def X_spark_format_pipeline(collection, save_path, episode_id, mapping):
         right_tcp_poses:
         right_delta_ee_poses:
     '''
+
     def get_cam_shape(img_bytes):
-        jpeg_bytes = img_bytes.rstrip(b"\0")
-        nparr = np.frombuffer(jpeg_bytes, dtype=np.uint8)
-        shape = cv2.imdecode(nparr, 1).shape
-        return shape
+        if isinstance(img_bytes, np.ndarray):
+            return img_bytes.shape  
+        else:
+            jpeg_bytes = img_bytes.rstrip(b"\0")
+            nparr = np.frombuffer(jpeg_bytes, dtype=np.uint8)
+            shape = cv2.imdecode(nparr, 1).shape
+            return shape
 
     with h5py.File(hdf5_path, "w") as f:
         vision = f.create_group("vision")
@@ -465,9 +479,6 @@ def X_spark_format_pipeline(collection, save_path, episode_id, mapping):
         cam_right_wrist.create_dataset("colors", data=cam_right_wrist_color)
         cam_right_wrist.create_dataset("shape", data=get_cam_shape(cam_right_wrist_color[0])) # 固定分辨率
         
-        # left_joint_states = np.concatenate([left_joint, np.array(left_gripper).reshape(-1, 1)], axis=1)
-        # right_joint_states = np.concatenate([right_joint, np.array(right_gripper).reshape(-1, 1)], axis=1)
-
         state.create_dataset("left_arm_joint_states", data=left_joint)
         state.create_dataset("left_ee_joint_states", data=left_gripper)
         state.create_dataset("left_ee_poses", data=left_eef)
@@ -482,6 +493,136 @@ def X_spark_format_pipeline(collection, save_path, episode_id, mapping):
         f.create_dataset("data_format_version", data=np.string_(collection.extra_episode_info.get("data_format_version", "v1.0")))
         
     debug_print("X_one_format_pipeline", f"save data success at: {output_path}, id: {episode_id} !", "INFO")
+
+def X_spark_h264_format_pipeline(collection, save_path, episode_id, mapping):
+    """
+    与 X_spark_format_pipeline 的差别是：图像使用 h264_nvenc 编码，并以 bytes 形式存入 HDF5。
+    """
+    hdf5_path = os.path.join(save_path, f"{episode_id}.hdf5")
+
+    left_eef, left_joint, left_gripper, left_timestamp = collection.get_item("left_arm", "eef"), collection.get_item("left_arm", "joint"), \
+                                                        collection.get_item("left_arm", "gripper"), collection.get_item("left_arm", "timestamp")
+    right_eef, right_joint, right_gripper, right_timestamp = collection.get_item("right_arm", "eef"), collection.get_item("right_arm", "joint"),\
+                                                        collection.get_item("right_arm", "gripper"), collection.get_item("right_arm", "timestamp")
+
+    left_gripper = np.array(left_gripper).reshape(-1, 1)
+    right_gripper = np.array(right_gripper).reshape(-1, 1)
+
+    def decode(imgs):
+        ret_imgs = []
+        if isinstance(imgs, bytes) or (isinstance(imgs,np.ndarray) and len(imgs.shape) == 1):
+            for img in imgs:
+                jpeg_bytes = img.tobytes().rstrip(b"\0")
+                nparr = np.frombuffer(jpeg_bytes, dtype=np.uint8)
+                ret_imgs.append(cv2.imdecode(nparr, 1))
+        else:
+            ret_imgs = imgs
+        return ret_imgs
+
+    cam_head_frames = decode(collection.get_item("cam_head", "color"))
+    cam_left_wrist_frames = decode(collection.get_item("cam_left_wrist", "color"))
+    cam_right_wrist_frames = decode(collection.get_item("cam_right_wrist", "color"))
+
+    def encode_video_h264(frames, fps=30, use_nvenc=False):
+        if len(frames) == 0:
+            return b""
+        h, w, c = frames[0].shape
+        
+        if use_nvenc:
+            # 硬件编码配置 (实时/高性能)
+            cmd = [
+                "ffmpeg", "-y", "-f", "rawvideo", "-vcodec", "rawvideo",
+                "-pix_fmt", "bgr24", "-s", f"{w}x{h}", "-framerate", str(fps),
+                "-i", "-", 
+                "-c:v", "h264_nvenc", 
+                "-preset", "p7", 
+                "-rc", "vbr", 
+                "-cq", "14", 
+                "-pix_fmt", "yuv420p", 
+                "-f", "mp4", "-movflags", "frag_keyframe+empty_moov+default_base_moof", 
+                "pipe:1"
+            ]
+        else:
+            # CPU 编码配置 (高质量/离线)
+            cmd = [
+                "ffmpeg", "-y",
+                "-f", "rawvideo", "-vcodec", "rawvideo",
+                "-s", f"{w}x{h}", "-pix_fmt", "bgr24", "-r", str(fps),
+                "-i", "-",
+                "-c:v", "libx264", 
+                "-preset", "veryslow", 
+                "-crf", "14",
+                "-pix_fmt", "yuv420p", 
+                "-f", "mp4", "-movflags", "frag_keyframe+empty_moov+default_base_moof", 
+                "pipe:1"
+            ]
+        
+        proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        
+        def write_stdin():
+            try:
+                for frame in frames:
+                    proc.stdin.write(frame.tobytes())
+                proc.stdin.close()
+            except BrokenPipeError:
+                pass
+            
+        import threading
+        thread = threading.Thread(target=write_stdin, name="write_stdin")
+        thread.start()
+        
+        video_data = proc.stdout.read()
+        stderr_data = proc.stderr.read()
+        proc.wait()
+        thread.join()
+
+        if proc.returncode != 0:
+            debug_print("encode_video_h264", f"FFmpeg failed with return code {proc.returncode}. Stderr: {stderr_data.decode()}", "ERROR")
+            return b""
+            
+        return video_data
+    
+    # print(cam_head_frames.shape)
+    # 编码图像数据
+    use_nvenc = mapping.get("use_nvenc", False)  # 从外部 mapping 获取配置，默认为 False (libx264)
+    head_video_bytes = encode_video_h264(cam_head_frames, 30, use_nvenc=use_nvenc)
+    left_wrist_video_bytes = encode_video_h264(cam_left_wrist_frames, 30, use_nvenc=use_nvenc)
+    right_wrist_video_bytes = encode_video_h264(cam_right_wrist_frames, 30, use_nvenc=use_nvenc)
+
+    with h5py.File(hdf5_path, "w") as f:
+        vision = f.create_group("vision")
+        # 将视频 bytes 存入 HDF5 作为一个 dataset
+        v_head = vision.create_group("cam_head")
+        if len(head_video_bytes) > 0:
+            v_head.create_dataset("video_h264", data=np.void(head_video_bytes))
+        v_head.create_dataset("shape", data=cam_head_frames[0].shape if len(cam_head_frames) > 0 else [0,0,0])
+
+        v_left = vision.create_group("cam_left_wrist")
+        if len(left_wrist_video_bytes) > 0:
+            v_left.create_dataset("video_h264", data=np.void(left_wrist_video_bytes))
+        v_left.create_dataset("shape", data=cam_left_wrist_frames[0].shape if len(cam_left_wrist_frames) > 0 else [0,0,0])
+
+        v_right = vision.create_group("cam_right_wrist")
+        if len(right_wrist_video_bytes) > 0:
+            v_right.create_dataset("video_h264", data=np.void(right_wrist_video_bytes))
+        v_right.create_dataset("shape", data=cam_right_wrist_frames[0].shape if len(cam_right_wrist_frames) > 0 else [0,0,0])
+
+        state = f.create_group("state")
+        state.create_dataset("left_arm_joint_states", data=left_joint)
+        state.create_dataset("left_ee_joint_states", data=left_gripper)
+        state.create_dataset("left_ee_poses", data=left_eef)
+        state.create_dataset("right_arm_joint_states", data=right_joint)
+        state.create_dataset("right_ee_joint_states", data=right_gripper)
+        state.create_dataset("right_ee_poses", data=right_eef)
+
+        # f.create_dataset("instructions", data=np.string_(json.dumps(instructions)))
+        # f.create_dataset("subtasks", data=np.string_(json.dumps(subtasks)))
+        
+        # addition_info = f.create_group("additional_info")
+        # addition_info.create_dataset("frequency", data=fps)
+        f.create_dataset("data_format_version", data=np.string_("v1.0_h264_embedded"))
+
+    debug_print("X_spark_h264_format_pipeline", f"save data success at: {hdf5_path}!", "INFO")
 
 def X_spark_parquet_pipeline(collection, save_path, episode_id, mapping):
     """
