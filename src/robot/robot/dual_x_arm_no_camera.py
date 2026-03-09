@@ -49,7 +49,6 @@ class Dual_X_Arm_No_Camera(Robot):
         
         if self.teleop:
             self._change_mode(teleop=False)
-        
         time.sleep(2) # TODO
         move_data = {
             "arm":{
@@ -75,3 +74,4 @@ class Dual_X_Arm_No_Camera(Robot):
         time.sleep(1)
         self.controllers["arm"]["right_arm"].change_mode(teleop)
         time.sleep(1)
+        self.teleop = teleop

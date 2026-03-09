@@ -24,7 +24,6 @@ class Dual_X_Arm_master(Robot):
 
         self.teleop_mode = teleop
         self.teleop = False
-
         self.controllers["arm"]["left_arm"].set_up(self.robot_config['ROBOT_CAN']['left_arm'], teleop=self.teleop)
         self.controllers["arm"]["right_arm"].set_up(self.robot_config['ROBOT_CAN']['right_arm'], teleop=self.teleop)
         
@@ -62,3 +61,4 @@ class Dual_X_Arm_master(Robot):
         time.sleep(1)
         self.controllers["arm"]["right_arm"].change_mode(teleop)
         time.sleep(1)
+        self.teleop = teleop

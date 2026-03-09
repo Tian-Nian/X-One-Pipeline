@@ -88,6 +88,7 @@ class Dual_X_Arm_Mobile(Robot):
         time.sleep(1)
         self.controllers["arm"]["right_arm"].change_mode(teleop)
         time.sleep(1)
+        self.teleop = teleop
     
     def set_map(self, map_path):
         self.controllers["mobile"]["slamware"].set_map(map_path)
