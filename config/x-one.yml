@@ -10,7 +10,8 @@ collect:
   save_freq: 30  # in Hz
   move_check: true
   use_footpedal: true
-  footpedal_serial: "/dev/pedal" # only read if use_footpedal is true, default to "/dev/hidraw4"
+
+  footpedal_serial: "/dev/pedal" # only read if use_footpedal is true, default to "/dev/pedal"
 
 robot:
   type: x-one
@@ -25,9 +26,9 @@ robot:
     left_arm: can0
     right_arm: can2
   CAMERA_SERIALS:
-    head: "/dev/video0"
-    left_wrist: "/dev/video2"
-    right_wrist: "/dev/video4"
+    head: "/dev/head_camera"
+    left_wrist: "/dev/left_wrist_camera"
+    right_wrist: "/dev/right_wrist_camera"
   bias:
     left_arm:
       gripper: -0.01
